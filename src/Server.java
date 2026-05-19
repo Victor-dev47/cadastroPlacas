@@ -15,42 +15,15 @@ public class Server {
         // =========================
         server.createContext("/", exchange -> {
 
-            StringBuilder html = new StringBuilder();
-
             // Carregar HTML base
-            File file = new File("index.html");
+            File file = new File("public/index.html");
             String pagina = new String(java.nio.file.Files.readAllBytes(file.toPath()), StandardCharsets.UTF_8);
 
-            // Montar tabela
-            StringBuilder tabela = new StringBuilder();
-
-            try {
-                Connection conn = DriverManager.getConnection(
-                        "jdbc:mysql://localhost:3306/placas_db",
-                        "root",
-                        "1234" // SUA SENHA
-                );
-
-                String sql = "SELECT * FROM veiculos";
-                PreparedStatement stmt = conn.prepareStatement(sql);
-                ResultSet rs = stmt.executeQuery();
-
-                while (rs.next()) {
-                    tabela.append("<tr>");
-                    tabela.append("<td>").append(rs.getString("placa")).append("</td>");
-                    tabela.append("<td>").append(rs.getString("modelo")).append("</td>");
-                    tabela.append("<td>").append(rs.getString("cor")).append("</td>");
-                    tabela.append("</tr>");
-                }
-
-                conn.close();
-
-            } catch (Exception e) {
-                tabela.append("<tr><td colspan='3'>Erro ao carregar dados</td></tr>");
-            }
+            // Montar tabela usando o helper
+            String tabela = gerarTabelaHTML();
 
             // Substituir no HTML
-            pagina = pagina.replace("{{TABELA}}", tabela.toString());
+            pagina = pagina.replace("{{TABELA}}", tabela);
 
             byte[] response = pagina.getBytes(StandardCharsets.UTF_8);
 
@@ -66,7 +39,7 @@ public class Server {
         // =========================
         server.createContext("/style.css", exchange -> {
 
-            File file = new File("style.css");
+            File file = new File("public/style.css");
 
             byte[] response = java.nio.file.Files.readAllBytes(file.toPath());
 
@@ -101,11 +74,7 @@ public class Server {
             }
 
             try {
-                Connection conn = DriverManager.getConnection(
-                        "jdbc:mysql://localhost:3306/placas_db",
-                        "root",
-                        "1234"
-                );
+                Connection conn = database.conectar();
 
                 String sql = "INSERT INTO veiculos (placa, modelo, cor) VALUES (?, ?, ?)";
                 PreparedStatement stmt = conn.prepareStatement(sql);
@@ -130,5 +99,28 @@ public class Server {
 
         server.start();
         System.out.println("Servidor rodando em http://localhost:8080");
+    }
+
+    private static String gerarTabelaHTML() {
+
+        StringBuilder tabela = new StringBuilder();
+
+        try (Connection conn = database.conectar();
+             PreparedStatement stmt = conn.prepareStatement("SELECT * FROM veiculos");
+             ResultSet rs = stmt.executeQuery()) {
+
+            while (rs.next()) {
+                tabela.append("<tr>");
+                tabela.append("<td>").append(rs.getString("placa")).append("</td>");
+                tabela.append("<td>").append(rs.getString("modelo")).append("</td>");
+                tabela.append("<td>").append(rs.getString("cor")).append("</td>");
+                tabela.append("</tr>");
+            }
+
+        } catch (Exception e) {
+            tabela.append("<tr><td colspan='3'>Erro ao carregar dados</td></tr>");
+        }
+
+        return tabela.toString();
     }
 }
